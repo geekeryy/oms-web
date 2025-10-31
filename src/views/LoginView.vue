@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { loginWithOTP } from '@/api/auth'
 
 const router = useRouter()
 
@@ -141,7 +142,10 @@ const handlePaste = (event: ClipboardEvent) => {
   }
 }
 
-// 验证验证码
+// 登录加载状态
+const loginLoading = ref(false)
+
+// 验证验证码并登录
 const doLogin = async () => {
   const code = verifyCode.value.join('')
   
@@ -150,30 +154,50 @@ const doLogin = async () => {
     return
   }
 
+  // 防止重复提交
+  if (loginLoading.value) {
+    return
+  }
+
+  loginLoading.value = true
+
   try {
-    // TODO 这里调用你的API验证验证码 
-    if (loginMode.value === 'phone') {
-      console.log('验证手机号验证码:', { phone: phone.value, code })
+    // 调用OTP登录API
+    const response = await loginWithOTP(code)
+    
+    // 保存token
+    if (response.token) {
+      localStorage.setItem('token', response.token)
+      localStorage.setItem('isAuthenticated', 'true')
+      
+      // 如果是手机号登录模式,保存手机号
+      if (loginMode.value === 'phone') {
+        localStorage.setItem('userPhone', phone.value)
+      }
+      
+      ElMessage.success('登录成功')
+      
+      // 跳转到首页
+      setTimeout(() => {
+        router.push('/')
+      }, 500)
     } else {
-      console.log('验证直接OTP验证码:', { code })
+      ElMessage.error('登录失败')
     }
-    
-    // 保存认证状态
-    localStorage.setItem('isAuthenticated', 'true')
-    if (loginMode.value === 'phone') {
-      localStorage.setItem('userPhone', phone.value)
-    }
-    
-    ElMessage.success('登录成功')
-    
-    // 跳转到首页
-    setTimeout(() => {
-      router.push('/')
-    }, 500)
   } catch (error) {
-    ElMessage.error('验证码错误')
+    // 处理错误
+    const errorMessage = error instanceof Error ? error.message : '验证码错误或已过期'
+    ElMessage.error(errorMessage)
+    
+    // 清空验证码输入
     verifyCode.value = ['', '', '', '', '', '']
-    codeInputs.value[0]?.focus()
+    
+    // 聚焦到第一个输入框
+    setTimeout(() => {
+      codeInputs.value[0]?.focus()
+    }, 100)
+  } finally {
+    loginLoading.value = false
   }
 }
 </script>
@@ -292,9 +316,11 @@ const doLogin = async () => {
           type="primary"
           size="large"
           class="submit-btn"
+          :loading="loginLoading"
+          :disabled="loginLoading"
           @click="doLogin"
         >
-          登录
+          {{ loginLoading ? '登录中...' : '登录' }}
         </el-button>
       </div>
 
