@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "geekeryy"
+  },
+  "targets": {
+    "geekeryy": {
+      "hosting": {
+        "oms-web-dev": [
+          "oms-web-dev"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
